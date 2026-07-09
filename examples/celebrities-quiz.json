@@ -1,0 +1,57 @@
+{
+  "label": "Celebrities",
+  "emoji": "⭐",
+  "description": "Famous faces from film, music, sports, and pop culture",
+  "questions": [
+    {
+      "question": "Which singer is known as the 'Queen of Pop'?",
+      "options": ["Whitney Houston", "Madonna", "Beyoncé", "Lady Gaga"],
+      "correctAnswer": "Madonna"
+    },
+    {
+      "question": "Who played Iron Man in the Marvel Cinematic Universe?",
+      "options": ["Chris Evans", "Robert Downey Jr.", "Chris Hemsworth", "Mark Ruffalo"],
+      "correctAnswer": "Robert Downey Jr."
+    },
+    {
+      "question": "Which athlete is widely regarded as the greatest basketball player of all time?",
+      "options": ["LeBron James", "Kobe Bryant", "Michael Jordan", "Magic Johnson"],
+      "correctAnswer": "Michael Jordan"
+    },
+    {
+      "question": "Taylor Swift's 2023–2024 world tour was called the ___ Tour.",
+      "options": ["Reputation", "Folklore", "Eras", "Midnights"],
+      "correctAnswer": "Eras"
+    },
+    {
+      "question": "Which actor starred as Jack Dawson in Titanic (1997)?",
+      "options": ["Brad Pitt", "Tom Cruise", "Leonardo DiCaprio", "Johnny Depp"],
+      "correctAnswer": "Leonardo DiCaprio"
+    },
+    {
+      "question": "Rihanna launched which beauty brand in 2017?",
+      "options": ["Fenty Beauty", "Rare Beauty", "Kylie Cosmetics", "Haus Labs"],
+      "correctAnswer": "Fenty Beauty"
+    },
+    {
+      "question": "Who created and starred in 'Chappelle's Show'?",
+      "options": ["Kevin Hart", "Dave Chappelle", "Chris Rock", "Eddie Murphy"],
+      "correctAnswer": "Dave Chappelle"
+    },
+    {
+      "question": "Which British singer released the album '25' featuring the hit 'Hello'?",
+      "options": ["Dua Lipa", "Adele", "Ed Sheeran", "Sam Smith"],
+      "correctAnswer": "Adele"
+    },
+    {
+      "question": "Cristiano Ronaldo is most famously associated with which sport?",
+      "options": ["Tennis", "Boxing", "Football (soccer)", "Formula 1"],
+      "correctAnswer": "Football (soccer)"
+    },
+    {
+      "question": "Which actress played Hermione Granger in the Harry Potter films?",
+      "options": ["Emma Watson", "Emma Stone", "Jennifer Lawrence", "Natalie Portman"],
+      "correctAnswer": "Emma Watson"
+    }
+  ]
+}

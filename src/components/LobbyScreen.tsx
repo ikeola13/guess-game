@@ -19,6 +19,9 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import WifiIcon from "@mui/icons-material/Wifi";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
+import QuizIcon from "@mui/icons-material/Quiz";
+import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
+import Link from "next/link";
 import { getPlayerName, savePlayerName } from "@/lib/storage";
 import { MAX_PLAYERS, MIN_PLAYERS } from "../../shared/protocol";
 
@@ -28,6 +31,8 @@ type LobbyScreenProps = {
   onPlayLocal: () => void;
   onCreateRoom: (name: string, maxPlayers: number) => void;
   onJoinRoom: (name: string, roomCode: string) => void;
+  onHostQuiz: () => void;
+  onJoinQuiz: (name: string, roomCode: string) => void;
 };
 
 export default function LobbyScreen({
@@ -36,10 +41,13 @@ export default function LobbyScreen({
   onPlayLocal,
   onCreateRoom,
   onJoinRoom,
+  onHostQuiz,
+  onJoinQuiz,
 }: LobbyScreenProps) {
   const [tab, setTab] = useState(0);
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [quizCode, setQuizCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(2);
 
   useEffect(() => {
@@ -57,6 +65,11 @@ export default function LobbyScreen({
   const handleJoin = () => {
     savePlayerName(name);
     onJoinRoom(name.trim(), roomCode.trim().toUpperCase());
+  };
+
+  const handleJoinQuiz = () => {
+    savePlayerName(name);
+    onJoinQuiz(name.trim(), quizCode.trim().toUpperCase());
   };
 
   return (
@@ -98,8 +111,9 @@ export default function LobbyScreen({
               />
 
               <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
-                <Tab icon={<WifiIcon />} iconPosition="start" label="Online" />
+                <Tab icon={<WifiIcon />} iconPosition="start" label="Guess" />
                 <Tab icon={<PhoneAndroidIcon />} iconPosition="start" label="Local" />
+                <Tab icon={<QuizIcon />} iconPosition="start" label="Quiz" />
               </Tabs>
 
               {tab === 0 && (
@@ -176,6 +190,56 @@ export default function LobbyScreen({
                   </Typography>
                   <Button variant="contained" fullWidth onClick={onPlayLocal}>
                     Start Local Game
+                  </Button>
+                </Stack>
+              )}
+
+              {tab === 2 && (
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Pick a topic and host a quiz for up to 20 players with a synced 10-second timer.
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    component={Link}
+                    href="/quiz-bank"
+                    startIcon={<LibraryBooksIcon />}
+                  >
+                    Manage question bank
+                  </Button>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    disabled={!canProceed}
+                    onClick={() => {
+                      savePlayerName(name);
+                      onHostQuiz();
+                    }}
+                  >
+                    Host a quiz
+                  </Button>
+                  <Divider>or join</Divider>
+                  <TextField
+                    label="Quiz session code"
+                    value={quizCode}
+                    onChange={(e) => setQuizCode(e.target.value.toUpperCase())}
+                    fullWidth
+                    placeholder="ABCDE"
+                    slotProps={{
+                      htmlInput: {
+                        maxLength: 5,
+                        style: { letterSpacing: 4, textTransform: "uppercase" },
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    disabled={!canProceed || quizCode.trim().length < 4}
+                    onClick={handleJoinQuiz}
+                  >
+                    Join quiz
                   </Button>
                 </Stack>
               )}

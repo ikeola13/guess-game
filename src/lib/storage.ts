@@ -1,6 +1,7 @@
 const PLAYER_ID_KEY = "guess-game-player-id";
 const PLAYER_NAME_KEY = "guess-game-player-name";
 const ROOM_CODE_KEY = "guess-game-room-code";
+const QUIZ_ROOM_CODE_KEY = "guess-game-quiz-room-code";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -40,4 +41,19 @@ export function saveSessionRoomCode(code: string): void {
 export function clearSessionRoomCode(): void {
   if (!isBrowser()) return;
   sessionStorage.removeItem(ROOM_CODE_KEY);
+}
+
+export function getSessionQuizRoomCode(): string | null {
+  if (!isBrowser()) return null;
+  return sessionStorage.getItem(QUIZ_ROOM_CODE_KEY);
+}
+
+export function saveSessionQuizRoomCode(code: string): void {
+  if (!isBrowser()) return;
+  sessionStorage.setItem(QUIZ_ROOM_CODE_KEY, code.toUpperCase());
+}
+
+export function clearSessionQuizRoomCode(): void {
+  if (!isBrowser()) return;
+  sessionStorage.removeItem(QUIZ_ROOM_CODE_KEY);
 }

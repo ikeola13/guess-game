@@ -12,6 +12,7 @@ import {
   getOrCreatePlayerId,
   getSessionRoomCode,
   saveSessionRoomCode,
+  clearSessionQuizRoomCode,
 } from "@/lib/storage";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -47,6 +48,7 @@ export function useFirebaseRoom() {
       finalizeCalledRef.current = false;
       setActiveRoomCode(code);
       saveSessionRoomCode(code);
+      clearSessionQuizRoomCode();
       playerIdRef.current = playerId;
       setYourPlayerId(playerId);
 

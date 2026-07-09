@@ -5,5 +5,13 @@ service cloud.firestore {
     match /rooms/{roomCode} {
       allow read, write: if true;
     }
+
+    match /quizRooms/{roomCode} {
+      allow read, write: if true;
+    }
+
+    match /quizTopics/{topicId} {
+      allow read, write: if true;
+    }
   }
 }
