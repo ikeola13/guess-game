@@ -1,0 +1,335 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import AppBar from "@mui/material/AppBar";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import HomeIcon from "@mui/icons-material/Home";
+import SetupScreen from "./SetupScreen";
+import LockInScreen from "./LockInScreen";
+import QuestionPhase from "./QuestionPhase";
+import GameOverScreen from "./GameOverScreen";
+import LobbyScreen from "./LobbyScreen";
+import WaitingRoom from "./WaitingRoom";
+import OnlineLockInScreen from "./OnlineLockInScreen";
+import { pickRandomItem } from "@/lib/categories";
+import type { GuessCategory } from "@/lib/categories";
+import { createInitialState, createPlayers } from "@/lib/game-types";
+import type { GameState } from "@/lib/game-types";
+import { useFirebaseRoom } from "@/hooks/useFirebaseRoom";
+import {
+  getCategoryFromRoom,
+  getCurrentAskerIndex,
+  roomPlayersToGamePlayers,
+} from "@/lib/room-utils";
+import { getPlayerName, getSessionRoomCode } from "@/lib/storage";
+
+type AppMode = "lobby" | "local" | "online";
+
+export default function GuessGame() {
+  const [mode, setMode] = useState<AppMode>("lobby");
+  const [game, setGame] = useState<GameState>(createInitialState);
+
+  const socket = useFirebaseRoom();
+
+  // Auto-rejoin saved room from sessionStorage
+  useEffect(() => {
+    if (socket.status !== "connected" || socket.roomState) return;
+    const savedRoom = getSessionRoomCode();
+    const name = getPlayerName();
+    if (savedRoom && name) {
+      socket.tryRejoin(name);
+      setMode("online");
+    }
+  }, [socket.status, socket.roomState, socket.tryRejoin]);
+
+  useEffect(() => {
+    if (socket.roomState && mode !== "local") {
+      setMode("online");
+    }
+  }, [socket.roomState, mode]);
+
+  const handleStartLocal = useCallback(
+    (playerCount: number, names: string[], category: GuessCategory) => {
+      const secretAnswer = pickRandomItem(category);
+      setGame({
+        ...createInitialState(),
+        phase: "lock-in",
+        playerCount,
+        players: createPlayers(playerCount, names),
+        category,
+        secretAnswer,
+        winnersNeeded: playerCount === 3 ? 2 : 1,
+        lockInPlayerIndex: 0,
+        lockInSecondsLeft: 30,
+      });
+      setMode("local");
+    },
+    [],
+  );
+
+  const handleLockIn = useCallback((guess: string) => {
+    setGame((prev) => {
+      const players = prev.players.map((p, i) =>
+        i === prev.lockInPlayerIndex ? { ...p, lockedGuess: guess } : p,
+      );
+      const nextIndex = prev.lockInPlayerIndex + 1;
+
+      if (nextIndex >= prev.playerCount) {
+        return { ...prev, players, phase: "questions", currentAskerIndex: 0 };
+      }
+
+      return {
+        ...prev,
+        players,
+        lockInPlayerIndex: nextIndex,
+        lockInSecondsLeft: 30,
+      };
+    });
+  }, []);
+
+  const handleTimeUp = useCallback(() => {
+    setGame((prev) => {
+      const players = prev.players.map((p, i) =>
+        i === prev.lockInPlayerIndex && !p.lockedGuess
+          ? { ...p, lockedGuess: "(no guess)" }
+          : p,
+      );
+      const nextIndex = prev.lockInPlayerIndex + 1;
+
+      if (nextIndex >= prev.playerCount) {
+        return { ...prev, players, phase: "questions", currentAskerIndex: 0 };
+      }
+
+      return {
+        ...prev,
+        players,
+        lockInPlayerIndex: nextIndex,
+        lockInSecondsLeft: 30,
+      };
+    });
+  }, []);
+
+  const handleNextAsker = useCallback(() => {
+    setGame((prev) => {
+      const activeIndices = prev.players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p }) => !p.hasWon)
+        .map(({ i }) => i);
+
+      if (activeIndices.length === 0) return prev;
+
+      const currentPos = activeIndices.indexOf(prev.currentAskerIndex);
+      const nextPos = currentPos === -1 ? 0 : (currentPos + 1) % activeIndices.length;
+
+      return { ...prev, currentAskerIndex: activeIndices[nextPos] };
+    });
+  }, []);
+
+  const handleSubmitGuess = useCallback(
+    (playerId: string, _guess: string, correct: boolean) => {
+      setGame((prev) => {
+        if (!correct) return prev;
+
+        const newWinnerCount = prev.winnerCount + 1;
+        const players = prev.players.map((p) =>
+          p.id === playerId
+            ? { ...p, hasWon: true, finishOrder: newWinnerCount }
+            : p,
+        );
+
+        if (newWinnerCount >= prev.winnersNeeded) {
+          return { ...prev, players, winnerCount: newWinnerCount, phase: "finished" };
+        }
+
+        return { ...prev, players, winnerCount: newWinnerCount };
+      });
+    },
+    [],
+  );
+
+  const handleRevealAnswer = useCallback(() => {
+    setGame((prev) => ({ ...prev, phase: "finished" }));
+  }, []);
+
+  const handlePlayAgainLocal = useCallback(() => {
+    setGame(createInitialState());
+    setMode("lobby");
+  }, []);
+
+  const handleGoHome = useCallback(() => {
+    if (mode === "online") {
+      socket.leaveRoom();
+      setMode("lobby");
+      return;
+    }
+    if (mode === "local" && game.phase !== "setup") {
+      setGame(createInitialState());
+      setMode("lobby");
+    }
+  }, [mode, game.phase, socket]);
+
+  const room = socket.roomState;
+  const category = room ? getCategoryFromRoom(room) : null;
+  const isHost = room ? room.hostId === socket.yourPlayerId : false;
+
+  const showHomeButton =
+    mode === "online" || (mode === "local" && game.phase !== "setup");
+
+  return (
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        color="inherit"
+        sx={{ borderBottom: 1, borderColor: "divider" }}
+      >
+        <Toolbar>
+          {showHomeButton && (
+            <IconButton edge="start" onClick={handleGoHome} aria-label="home">
+              <HomeIcon />
+            </IconButton>
+          )}
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{ flexGrow: 1, color: "primary.main", fontWeight: 700 }}
+          >
+            Guess Game
+          </Typography>
+          {mode === "online" && room && (
+            <Chip label={room.code} size="small" sx={{ mr: 1 }} />
+          )}
+          {mode === "online" && socket.status === "connected" && (
+            <Chip label="Online" size="small" color="success" variant="outlined" />
+          )}
+          {mode === "local" && game.category && (
+            <Typography variant="body2" color="text.secondary">
+              {game.category.emoji} {game.category.label}
+            </Typography>
+          )}
+          {mode === "online" && category && room && room.phase !== "lobby" && (
+            <Typography variant="body2" color="text.secondary">
+              {category.emoji} {category.label}
+            </Typography>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      {mode === "lobby" && (
+        <LobbyScreen
+          connectionStatus={socket.status}
+          error={socket.error}
+          onPlayLocal={() => {
+            setGame(createInitialState());
+            setMode("local");
+          }}
+          onCreateRoom={(name, maxPlayers) => {
+            socket.createRoom(name, maxPlayers);
+          }}
+          onJoinRoom={(name, code) => {
+            socket.joinRoom(code, name);
+          }}
+        />
+      )}
+
+      {mode === "local" && game.phase === "setup" && (
+        <SetupScreen onStart={handleStartLocal} />
+      )}
+
+      {mode === "local" && game.phase === "lock-in" && game.category && (
+        <LockInScreen
+          key={game.lockInPlayerIndex}
+          player={game.players[game.lockInPlayerIndex]}
+          playerIndex={game.lockInPlayerIndex}
+          totalPlayers={game.playerCount}
+          category={game.category}
+          onLockIn={handleLockIn}
+          onTimeUp={handleTimeUp}
+        />
+      )}
+
+      {mode === "local" && game.phase === "questions" && game.category && (
+        <QuestionPhase
+          players={game.players}
+          category={game.category}
+          secretAnswer={game.secretAnswer}
+          currentAskerIndex={game.currentAskerIndex}
+          winnersNeeded={game.winnersNeeded}
+          winnerCount={game.winnerCount}
+          onNextAsker={handleNextAsker}
+          onSubmitGuess={handleSubmitGuess}
+          onRevealAnswer={handleRevealAnswer}
+        />
+      )}
+
+      {mode === "local" && game.phase === "finished" && game.category && (
+        <GameOverScreen
+          players={game.players}
+          category={game.category}
+          secretAnswer={game.secretAnswer}
+          onPlayAgain={handlePlayAgainLocal}
+        />
+      )}
+
+      {mode === "online" && room?.phase === "lobby" && (
+        <WaitingRoom
+          room={room}
+          yourPlayerId={socket.yourPlayerId}
+          onStart={socket.startGame}
+          onLeave={() => {
+            socket.leaveRoom();
+            setMode("lobby");
+          }}
+        />
+      )}
+
+      {mode === "online" && room?.phase === "lock-in" && category && (
+        <OnlineLockInScreen
+          room={room}
+          category={category}
+          yourPlayerId={socket.yourPlayerId}
+          onLockIn={socket.lockGuess}
+        />
+      )}
+
+      {mode === "online" && room?.phase === "questions" && category && (
+        <QuestionPhase
+          players={roomPlayersToGamePlayers(room.players)}
+          category={category}
+          secretAnswer=""
+          currentAskerIndex={getCurrentAskerIndex(room)}
+          currentAskerId={room.currentAskerId}
+          winnersNeeded={room.winnersNeeded}
+          winnerCount={room.winnerCount}
+          onNextAsker={socket.nextAsker}
+          onSubmitGuess={() => {}}
+          onRevealAnswer={socket.revealAnswer}
+          isOnline
+          myPlayerId={socket.yourPlayerId}
+          serverGuessResult={socket.guessResult}
+          onSubmitGuessOnline={socket.submitGuess}
+          onClearGuessResult={socket.clearGuessResult}
+          isHost={isHost}
+        />
+      )}
+
+      {mode === "online" && room?.phase === "finished" && category && (
+        <GameOverScreen
+          players={roomPlayersToGamePlayers(room.players)}
+          category={category}
+          secretAnswer={room.secretAnswer ?? ""}
+          onPlayAgain={() => {
+            socket.playAgain();
+            socket.clearGuessResult();
+          }}
+          isOnline
+          isHost={isHost}
+        />
+      )}
+    </Box>
+  );
+}

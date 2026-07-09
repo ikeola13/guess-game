@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Frontend is hosted on Netlify only.
+# Firebase is used for Firestore + Cloud Functions (backend).
+# Set NEXT_PUBLIC_FIREBASE_* env vars in Netlify dashboard.

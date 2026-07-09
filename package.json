@@ -3,23 +3,37 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently -n next,emu -c blue,green \"next dev\" \"firebase emulators:start --only firestore\"",
+    "dev:next": "next dev",
+    "dev:emulators": "firebase emulators:start --only firestore",
     "build": "next build",
+    "deploy:firebase": "firebase deploy --only firestore:rules",
+    "deploy:firebase:rules": "firebase deploy --only firestore:rules",
+    "firebase:login": "NODE_OPTIONS='--require ./scripts/no-keepalive.cjs' npx firebase login --no-localhost",
+    "firebase:logout": "npx firebase logout",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
+    "concurrently": "^10.0.3",
+    "firebase": "^12.16.0",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.12",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "firebase-tools": "^15.22.4",
     "typescript": "^5"
   }
 }
