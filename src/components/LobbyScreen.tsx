@@ -5,9 +5,12 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -17,6 +20,7 @@ import Alert from "@mui/material/Alert";
 import WifiIcon from "@mui/icons-material/Wifi";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import { getPlayerName, savePlayerName } from "@/lib/storage";
+import { MAX_PLAYERS, MIN_PLAYERS } from "../../shared/protocol";
 
 type LobbyScreenProps = {
   connectionStatus: "connecting" | "connected" | "disconnected";
@@ -104,20 +108,24 @@ export default function LobbyScreen({
                     <Typography variant="subtitle2" gutterBottom>
                       Create a room
                     </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        label="2 players"
-                        onClick={() => setMaxPlayers(2)}
-                        color={maxPlayers === 2 ? "primary" : "default"}
-                        variant={maxPlayers === 2 ? "filled" : "outlined"}
-                      />
-                      <Chip
-                        label="3 players"
-                        onClick={() => setMaxPlayers(3)}
-                        color={maxPlayers === 3 ? "primary" : "default"}
-                        variant={maxPlayers === 3 ? "filled" : "outlined"}
-                      />
-                    </Stack>
+                    <FormControl fullWidth>
+                      <InputLabel id="max-players-label">Max players</InputLabel>
+                      <Select
+                        labelId="max-players-label"
+                        value={maxPlayers}
+                        label="Max players"
+                        onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                      >
+                        {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => {
+                          const count = i + MIN_PLAYERS;
+                          return (
+                            <MenuItem key={count} value={count}>
+                              {count} players
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                    </FormControl>
                     <Button
                       variant="contained"
                       fullWidth

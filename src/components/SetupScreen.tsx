@@ -18,6 +18,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import CategoryIcon from "@mui/icons-material/Category";
 import { GUESS_CATEGORIES } from "@/lib/categories";
 import type { GuessCategory } from "@/lib/categories";
+import { MAX_PLAYERS, MIN_PLAYERS, getWinnersNeeded } from "../../shared/protocol";
 
 type SetupScreenProps = {
   onStart: (playerCount: number, names: string[], category: GuessCategory) => void;
@@ -70,8 +71,15 @@ export default function SetupScreen({ onStart }: SetupScreenProps) {
                   label="Number of players"
                   onChange={(e) => handlePlayerCountChange(Number(e.target.value))}
                 >
-                  <MenuItem value={2}>2 players — 1 winner</MenuItem>
-                  <MenuItem value={3}>3 players — 2 winners</MenuItem>
+                  {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => {
+                    const count = i + MIN_PLAYERS;
+                    const winners = getWinnersNeeded(count);
+                    return (
+                      <MenuItem key={count} value={count}>
+                        {count} players — {winners} winner{winners === 1 ? "" : "s"}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
               </FormControl>
 

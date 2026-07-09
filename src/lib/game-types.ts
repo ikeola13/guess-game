@@ -1,4 +1,5 @@
 import type { GuessCategory } from "./categories";
+import type { GuessAttempt } from "../../shared/protocol";
 
 export type GamePhase = "setup" | "lock-in" | "questions" | "finished";
 
@@ -20,6 +21,7 @@ export type GameState = {
   currentAskerIndex: number;
   winnersNeeded: number;
   winnerCount: number;
+  guessHistory: GuessAttempt[];
 };
 
 export function createInitialState(): GameState {
@@ -33,6 +35,7 @@ export function createInitialState(): GameState {
     currentAskerIndex: 0,
     winnersNeeded: 1,
     winnerCount: 0,
+    guessHistory: [],
   };
 }
 

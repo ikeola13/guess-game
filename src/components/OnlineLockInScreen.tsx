@@ -23,6 +23,7 @@ type OnlineLockInScreenProps = {
   yourPlayerId: string;
   onLockIn: (guess: string) => void;
   onLeave: () => void;
+  isLocking?: boolean;
 };
 
 export default function OnlineLockInScreen({
@@ -31,13 +32,14 @@ export default function OnlineLockInScreen({
   yourPlayerId,
   onLockIn,
   onLeave,
+  isLocking = false,
 }: OnlineLockInScreenProps) {
   const [guess, setGuess] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(30);
 
   const me = room.players.find((p) => p.id === yourPlayerId);
-  const hasLockedIn = me?.hasLockedIn ?? false;
+  const hasLockedIn = (me?.hasLockedIn ?? false) || isLocking;
 
   useEffect(() => {
     if (!room.lockInEndsAt) return;
@@ -54,7 +56,7 @@ export default function OnlineLockInScreen({
 
   const progress = (secondsLeft / (LOCK_IN_MS / 1000)) * 100;
   const isUrgent = secondsLeft <= 10;
-  const canLock = guess.trim().length > 0 && !hasLockedIn;
+  const canLock = guess.trim().length > 0 && !hasLockedIn && !isLocking;
 
   if (hasLockedIn) {
     return (
@@ -152,7 +154,7 @@ export default function OnlineLockInScreen({
           startIcon={<LockIcon />}
           onClick={() => onLockIn(guess.trim())}
         >
-          Lock In Answer
+          {isLocking ? "Locking..." : "Lock In Answer"}
         </Button>
 
         <PlayerStatusList players={room.players} yourPlayerId={yourPlayerId} />

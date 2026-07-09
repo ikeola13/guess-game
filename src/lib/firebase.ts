@@ -1,5 +1,12 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getFirestore, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,7 +30,17 @@ export function getFirebaseApp(): FirebaseApp {
 
 export function getFirebaseDb(): Firestore {
   if (!db) {
-    db = getFirestore(getFirebaseApp());
+    const firebaseApp = getFirebaseApp();
+    if (typeof window !== "undefined") {
+      db = initializeFirestore(firebaseApp, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } else {
+      db = getFirestore(firebaseApp);
+    }
+
     if (
       process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true" &&
       !emulatorsConnected

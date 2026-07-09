@@ -8,12 +8,15 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import ReplayIcon from "@mui/icons-material/Replay";
+import GuessHistoryPanel from "./GuessHistoryPanel";
 import type { GuessCategory } from "@/lib/categories";
 import type { Player } from "@/lib/game-types";
+import type { GuessAttempt } from "../../shared/protocol";
 
 type GameOverScreenProps = {
   players: Player[];
   category: GuessCategory;
+  guessHistory?: GuessAttempt[];
   onPlayAgain: () => void;
   onLeave?: () => void;
   isOnline?: boolean;
@@ -23,6 +26,7 @@ type GameOverScreenProps = {
 export default function GameOverScreen({
   players,
   category,
+  guessHistory = [],
   onPlayAgain,
   onLeave,
   isOnline = false,
@@ -112,6 +116,10 @@ export default function GameOverScreen({
             </Stack>
           </CardContent>
         </Card>
+
+        {guessHistory.length > 0 && (
+          <GuessHistoryPanel guessHistory={guessHistory} players={players} />
+        )}
 
         {(!isOnline || isHost) ? (
           <Button

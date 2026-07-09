@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+type PendingAction = "lock" | null;
 
 export function useFirebaseRoom() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
@@ -24,6 +25,7 @@ export function useFirebaseRoom() {
   const [guessResult, setGuessResult] = useState<"correct" | "wrong" | null>(null);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const playerIdRef = useRef("");
@@ -178,14 +180,34 @@ export function useFirebaseRoom() {
   );
 
   const lockGuess = useCallback(
-    (guess: string) =>
-      withRoom((code, playerId) => roomApi.lockGuess(code, playerId, guess)),
-    [withRoom],
-  );
+    async (guess: string) => {
+      const code = activeRoomCode ?? roomState?.code;
+      const playerId = playerIdRef.current;
+      if (!code || !playerId) return;
 
-  const nextAsker = useCallback(
-    () => withRoom((code) => roomApi.nextAsker(code)),
-    [withRoom],
+      setPendingAction("lock");
+      setRoomState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((player) =>
+            player.id === playerId
+              ? { ...player, hasLockedIn: true, lockedGuess: "🔒" }
+              : player,
+          ),
+        };
+      });
+
+      try {
+        setError(null);
+        await roomApi.lockGuess(code, playerId, guess);
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [activeRoomCode, roomState?.code, handleError],
   );
 
   const submitGuess = useCallback(
@@ -232,6 +254,7 @@ export function useFirebaseRoom() {
     setError(null);
     setGuessResult(null);
     setIsJoining(false);
+    setPendingAction(null);
   }, [activeRoomCode, roomState?.code]);
 
   const disconnect = leaveRoom;
@@ -244,12 +267,12 @@ export function useFirebaseRoom() {
     error,
     guessResult,
     isJoining,
+    pendingAction,
     createRoom,
     joinRoom,
     tryRejoin,
     startGame,
     lockGuess,
-    nextAsker,
     submitGuess,
     revealAnswer,
     playAgain,

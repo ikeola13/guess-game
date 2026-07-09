@@ -4,19 +4,20 @@ import {
   getDoc,
   runTransaction,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
+import { normalizeAnswer } from "../../shared/categories";
 import {
   checkLockInTimer,
   createRoomData,
+  finalizeLockInIfReady,
   firestoreToRoom,
   generateRoomCode,
   joinRoomData,
   leaveRoomData,
   lockGuessData,
-  nextAskerData,
   playAgainData,
-  revealAnswerData,
   roomToFirestore,
   startGameData,
   submitGuessData,
@@ -107,10 +108,39 @@ export async function lockGuess(
   playerId: string,
   guess: string,
 ): Promise<void> {
-  await updateRoom(code, (room) => {
-    const result = lockGuessData(room, playerId, guess);
-    if (result.error) return { room, error: result.error };
-    return { room: result.room };
+  const ref = roomRef(code);
+  const answer = normalizeAnswer(guess) || "(no answer)";
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Room not found");
+
+  const room = firestoreToRoom(snap.data() as FirestoreRoom);
+  if (room.phase !== "lock-in") throw new Error("Not in lock-in phase");
+
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) throw new Error("Player not found");
+  if (player.hasLockedIn) return;
+
+  await updateDoc(ref, {
+    [`players.${playerId}.lockedGuess`]: answer,
+    [`players.${playerId}.hasLockedIn`]: true,
+  });
+
+  const updatedRoom: Room = {
+    ...room,
+    players: room.players.map((p) =>
+      p.id === playerId
+        ? { ...p, lockedGuess: answer, hasLockedIn: true }
+        : p,
+    ),
+  };
+
+  if (!finalizeLockInIfReady(updatedRoom)) return;
+
+  await updateDoc(ref, {
+    phase: updatedRoom.phase,
+    lockInEndsAt: updatedRoom.lockInEndsAt,
+    currentAskerId: updatedRoom.currentAskerId,
+    players: roomToFirestore(updatedRoom).players,
   });
 }
 
@@ -126,11 +156,8 @@ export async function finalizeLockIn(code: string): Promise<void> {
   });
 }
 
-export async function nextAsker(code: string): Promise<void> {
-  await updateRoom(code, (room) => {
-    const updated = nextAskerData(room);
-    return { room: updated ?? room };
-  });
+export async function nextAsker(code: string, nextAskerId: string): Promise<void> {
+  await updateDoc(roomRef(code), { currentAskerId: nextAskerId });
 }
 
 export async function submitGuess(
@@ -150,11 +177,14 @@ export async function submitGuess(
 }
 
 export async function revealAnswer(code: string, playerId: string): Promise<void> {
-  await updateRoom(code, (room) => {
-    const updated = revealAnswerData(room, playerId);
-    if (!updated) return { room, error: "Only the host can reveal the answer" };
-    return { room: updated };
-  });
+  const ref = roomRef(code);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Room not found");
+
+  const room = firestoreToRoom(snap.data() as FirestoreRoom);
+  if (room.hostId !== playerId) throw new Error("Only the host can reveal the answer");
+
+  await updateDoc(ref, { phase: "finished" });
 }
 
 export async function playAgain(code: string, playerId: string): Promise<void> {

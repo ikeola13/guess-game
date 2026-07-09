@@ -1,5 +1,14 @@
 export type GamePhase = "lobby" | "lock-in" | "questions" | "finished";
 
+export type GuessAttempt = {
+  id: string;
+  guesserId: string;
+  targetPlayerId: string;
+  guess: string;
+  correct: boolean;
+  createdAt: number;
+};
+
 export type PublicPlayer = {
   id: string;
   name: string;
@@ -21,8 +30,14 @@ export type PublicRoomState = {
   currentAskerId: string | null;
   winnersNeeded: number;
   winnerCount: number;
+  guessHistory: GuessAttempt[];
 };
 
 export const LOCK_IN_MS = 30_000;
-export const MAX_PLAYERS = 3;
+export const MAX_PLAYERS = 10;
 export const MIN_PLAYERS = 2;
+
+export function getWinnersNeeded(playerCount: number): number {
+  if (playerCount === 3) return 2;
+  return 1;
+}

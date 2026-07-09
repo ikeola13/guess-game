@@ -1,5 +1,5 @@
-import type { GamePhase, PublicPlayer, PublicRoomState } from "./protocol";
-import { LOCK_IN_MS, MAX_PLAYERS } from "./protocol";
+import type { GamePhase, GuessAttempt, PublicPlayer, PublicRoomState } from "./protocol";
+import { LOCK_IN_MS, MAX_PLAYERS, getWinnersNeeded } from "./protocol";
 import { GUESS_CATEGORIES, isCorrectGuess, normalizeAnswer } from "./categories";
 
 export type RoomPlayer = {
@@ -23,6 +23,7 @@ export type Room = {
   currentAskerId: string | null;
   winnersNeeded: number;
   winnerCount: number;
+  guessHistory: GuessAttempt[];
 };
 
 export type FirestoreRoom = Omit<Room, "players"> & {
@@ -41,6 +42,7 @@ export function roomToFirestore(room: Room): FirestoreRoom {
 export function firestoreToRoom(data: FirestoreRoom): Room {
   return {
     ...data,
+    guessHistory: data.guessHistory ?? [],
     players: Object.values(data.players),
   };
 }
@@ -82,6 +84,7 @@ export function toPublicState(room: Room, viewerId: string): PublicRoomState {
     currentAskerId: room.currentAskerId,
     winnersNeeded: room.winnersNeeded,
     winnerCount: room.winnerCount,
+    guessHistory: room.guessHistory,
   };
 }
 
@@ -110,6 +113,23 @@ function finalizeLockIn(room: Room): void {
   room.currentAskerId = room.players[0]?.id ?? null;
 }
 
+export function finalizeLockInIfReady(room: Room): boolean {
+  if (room.phase !== "lock-in" || !allPlayersLockedIn(room)) return false;
+  finalizeLockIn(room);
+  return true;
+}
+
+export function getNextAskerId(room: Room): string | null {
+  if (room.phase !== "questions") return null;
+
+  const active = room.players.filter((p) => !p.hasWon);
+  if (active.length === 0) return room.currentAskerId;
+
+  const currentIdx = active.findIndex((p) => p.id === room.currentAskerId);
+  const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % active.length;
+  return active[nextIdx].id;
+}
+
 export function createRoomData(
   playerId: string,
   playerName: string,
@@ -126,8 +146,9 @@ export function createRoomData(
     players: [createPlayer(playerId, playerName)],
     lockInEndsAt: null,
     currentAskerId: null,
-    winnersNeeded: capped === 3 ? 2 : 1,
+    winnersNeeded: getWinnersNeeded(capped),
     winnerCount: 0,
+    guessHistory: [],
   };
 }
 
@@ -170,8 +191,9 @@ export function startGameData(
   room.categoryId = categoryId;
   room.phase = "lock-in";
   room.lockInEndsAt = Date.now() + LOCK_IN_MS;
-  room.winnersNeeded = connected.length === 3 ? 2 : 1;
+  room.winnersNeeded = getWinnersNeeded(connected.length);
   room.winnerCount = 0;
+  room.guessHistory = [];
   room.currentAskerId = null;
 
   for (const player of room.players) {
@@ -214,12 +236,9 @@ export function checkLockInTimer(room: Room): boolean {
 export function nextAskerData(room: Room): Room | null {
   if (room.phase !== "questions") return null;
 
-  const active = room.players.filter((p) => !p.hasWon);
-  if (active.length === 0) return room;
-
-  const currentIdx = active.findIndex((p) => p.id === room.currentAskerId);
-  const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % active.length;
-  room.currentAskerId = active[nextIdx].id;
+  const nextId = getNextAskerId(room);
+  if (!nextId) return null;
+  room.currentAskerId = nextId;
   return room;
 }
 
@@ -243,6 +262,16 @@ export function submitGuessData(
   if (!target.lockedGuess) return { room, correct: false, error: "Target has no answer" };
 
   const correct = isCorrectGuess(guess, target.lockedGuess);
+
+  room.guessHistory.push({
+    id: `${Date.now()}-${guesserId}-${room.guessHistory.length}`,
+    guesserId,
+    targetPlayerId,
+    guess: normalizeAnswer(guess) || "(empty)",
+    correct,
+    createdAt: Date.now(),
+  });
+
   if (correct) {
     room.winnerCount += 1;
     guesser.hasWon = true;
@@ -267,6 +296,7 @@ export function playAgainData(room: Room, hostId: string): Room | null {
   room.lockInEndsAt = null;
   room.currentAskerId = null;
   room.winnerCount = 0;
+  room.guessHistory = [];
 
   for (const player of room.players) {
     player.lockedGuess = null;

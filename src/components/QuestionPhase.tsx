@@ -16,20 +16,19 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import HelpOutlinedIcon from "@mui/icons-material/HelpOutlined";
-import SkipNextIcon from "@mui/icons-material/SkipNext";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import GuessHistoryPanel from "./GuessHistoryPanel";
 import { isCorrectGuess } from "@/lib/categories";
 import type { GuessCategory } from "@/lib/categories";
 import type { Player } from "@/lib/game-types";
+import type { GuessAttempt } from "../../shared/protocol";
 
 type QuestionPhaseProps = {
   players: Player[];
   category: GuessCategory;
-  currentAskerIndex: number;
   winnersNeeded: number;
   winnerCount: number;
-  onNextAsker: () => void;
+  guessHistory: GuessAttempt[];
   onSubmitGuess: (guesserId: string, targetPlayerId: string, guess: string, correct: boolean) => void;
   onRevealAnswer: () => void;
   onLeave?: () => void;
@@ -39,16 +38,14 @@ type QuestionPhaseProps = {
   onSubmitGuessOnline?: (targetPlayerId: string, guess: string) => void;
   onClearGuessResult?: () => void;
   isHost?: boolean;
-  currentAskerId?: string | null;
 };
 
 export default function QuestionPhase({
   players,
   category,
-  currentAskerIndex,
   winnersNeeded,
   winnerCount,
-  onNextAsker,
+  guessHistory,
   onSubmitGuess,
   onRevealAnswer,
   onLeave,
@@ -58,7 +55,6 @@ export default function QuestionPhase({
   onSubmitGuessOnline,
   onClearGuessResult,
   isHost = true,
-  currentAskerId,
 }: QuestionPhaseProps) {
   const [guessDialogOpen, setGuessDialogOpen] = useState(false);
   const [targetPlayerId, setTargetPlayerId] = useState<string | null>(null);
@@ -69,14 +65,11 @@ export default function QuestionPhase({
   const activeGuessResult = isOnline ? serverGuessResult : guessResult;
 
   const activePlayers = players.filter((p) => !p.hasWon);
-  const currentAsker = isOnline && currentAskerId
-    ? players.find((p) => p.id === currentAskerId)
-    : players[currentAskerIndex];
   const winners = players.filter((p) => p.hasWon).sort((a, b) => (a.finishOrder ?? 0) - (b.finishOrder ?? 0));
 
   const openGuessDialog = (targetId: string) => {
     setTargetPlayerId(targetId);
-    setGuesserId(isOnline ? myPlayerId ?? null : currentAsker?.id ?? null);
+    setGuesserId(isOnline ? myPlayerId ?? null : null);
     setFinalGuess("");
     if (!isOnline) setGuessResult(null);
     onClearGuessResult?.();
@@ -91,7 +84,7 @@ export default function QuestionPhase({
       return;
     }
 
-    const guesser = guesserId ?? currentAsker?.id;
+    const guesser = guesserId;
     if (!guesser) return;
 
     const targetAnswer = players.find((p) => p.id === targetPlayerId)?.lockedGuess;
@@ -125,9 +118,9 @@ export default function QuestionPhase({
             Question Round
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Take turns asking each other questions about everyone&apos;s answers.
+            Ask each other yes/no questions out loud about everyone&apos;s answers.
             First to guess someone&apos;s answer correctly wins
-            {winnersNeeded > 1 ? " — top 2 win with 3 players" : ""}.
+            {winnersNeeded > 1 ? ` — top ${winnersNeeded} win` : ""}.
           </Typography>
         </Box>
 
@@ -146,43 +139,6 @@ export default function QuestionPhase({
                   {category.description}
                 </Typography>
               </Box>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <HelpOutlinedIcon color="primary" />
-                <Typography variant="h6">Current turn</Typography>
-              </Stack>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: 3,
-                  bgcolor: "background.default",
-                  textAlign: "center",
-                }}
-              >
-                <Typography variant="overline" color="text.secondary">
-                  Asking questions
-                </Typography>
-                <Typography variant="h4" color="primary">
-                  {currentAsker?.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Ask a yes/no question about someone&apos;s answer, then pass the turn.
-                </Typography>
-              </Box>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<SkipNextIcon />}
-                onClick={onNextAsker}
-              >
-                Next player&apos;s turn
-              </Button>
             </Stack>
           </CardContent>
         </Card>
@@ -221,7 +177,7 @@ export default function QuestionPhase({
                         <CheckCircleIcon fontSize="small" color="success" />
                       )}
                       <Typography
-                        sx={{ fontWeight: player.id === currentAsker?.id ? 700 : 400 }}
+                        sx={{ fontWeight: player.hasWon ? 700 : 400 }}
                         color={player.hasWon ? "success.dark" : "text.primary"}
                       >
                         {player.name}
@@ -248,6 +204,8 @@ export default function QuestionPhase({
             </Stack>
           </CardContent>
         </Card>
+
+        <GuessHistoryPanel guessHistory={guessHistory} players={players} />
 
         {winners.length > 0 && (
           <Card sx={{ bgcolor: "success.light" }}>

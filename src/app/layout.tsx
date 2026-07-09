@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Guess Game",
-  description: "A 2-3 player mobile guessing game",
+  description: "A 2-10 player mobile guessing game",
 };
 
 export const viewport: Viewport = {
