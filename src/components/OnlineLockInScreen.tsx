@@ -22,6 +22,7 @@ type OnlineLockInScreenProps = {
   category: GuessCategory;
   yourPlayerId: string;
   onLockIn: (guess: string) => void;
+  onLeave: () => void;
 };
 
 export default function OnlineLockInScreen({
@@ -29,6 +30,7 @@ export default function OnlineLockInScreen({
   category,
   yourPlayerId,
   onLockIn,
+  onLeave,
 }: OnlineLockInScreenProps) {
   const [guess, setGuess] = useState("");
   const [revealed, setRevealed] = useState(false);
@@ -64,6 +66,9 @@ export default function OnlineLockInScreen({
             Waiting for other players...
           </Typography>
           <PlayerStatusList players={room.players} yourPlayerId={yourPlayerId} />
+          <Button variant="text" color="secondary" onClick={onLeave}>
+            Leave room
+          </Button>
         </Stack>
       </Box>
     );
@@ -151,6 +156,10 @@ export default function OnlineLockInScreen({
         </Button>
 
         <PlayerStatusList players={room.players} yourPlayerId={yourPlayerId} />
+
+        <Button variant="text" color="secondary" onClick={onLeave}>
+          Leave room
+        </Button>
       </Stack>
     </Box>
   );

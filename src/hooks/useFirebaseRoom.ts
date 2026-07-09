@@ -23,6 +23,7 @@ export function useFirebaseRoom() {
   const [error, setError] = useState<string | null>(null);
   const [guessResult, setGuessResult] = useState<"correct" | "wrong" | null>(null);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const playerIdRef = useRef("");
@@ -52,7 +53,13 @@ export function useFirebaseRoom() {
         roomRef,
         (snapshot) => {
           if (!snapshot.exists()) {
+            unsubscribeRef.current?.();
+            unsubscribeRef.current = null;
             setRoomState(null);
+            setActiveRoomCode(null);
+            setIsJoining(false);
+            clearSessionRoomCode();
+            setError("Room not found");
             return;
           }
 
@@ -61,6 +68,7 @@ export function useFirebaseRoom() {
           setRoomState(toPublicState(room, playerId));
           setError(null);
           setStatus("connected");
+          setIsJoining(false);
 
           if (
             data.phase === "lock-in" &&
@@ -100,11 +108,13 @@ export function useFirebaseRoom() {
   const createRoom = useCallback(
     async (playerName: string, maxPlayers: number) => {
       try {
+        setIsJoining(true);
         setError(null);
         const playerId = getOrCreatePlayerId();
         const code = await roomApi.createRoom(playerId, playerName, maxPlayers);
         subscribeToRoom(code, playerId);
       } catch (err) {
+        setIsJoining(false);
         handleError(err);
       }
     },
@@ -114,11 +124,14 @@ export function useFirebaseRoom() {
   const joinRoom = useCallback(
     async (roomCode: string, playerName: string) => {
       try {
+        setIsJoining(true);
         setError(null);
         const playerId = getOrCreatePlayerId();
         await roomApi.joinRoom(roomCode, playerId, playerName);
         subscribeToRoom(roomCode, playerId);
       } catch (err) {
+        setIsJoining(false);
+        clearSessionRoomCode();
         handleError(err);
       }
     },
@@ -126,11 +139,21 @@ export function useFirebaseRoom() {
   );
 
   const tryRejoin = useCallback(
-    (playerName: string) => {
+    async (playerName: string) => {
       const savedRoom = getSessionRoomCode();
-      if (savedRoom) joinRoom(savedRoom, playerName);
+      if (!savedRoom) return;
+      try {
+        setIsJoining(true);
+        setError(null);
+        const playerId = getOrCreatePlayerId();
+        await roomApi.joinRoom(savedRoom, playerId, playerName);
+        subscribeToRoom(savedRoom, playerId);
+      } catch (err) {
+        setIsJoining(false);
+        handleError(err);
+      }
     },
-    [joinRoom],
+    [subscribeToRoom, handleError],
   );
 
   const withRoom = useCallback(
@@ -202,9 +225,13 @@ export function useFirebaseRoom() {
       }
     }
     unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
     clearSessionRoomCode();
     setRoomState(null);
     setActiveRoomCode(null);
+    setError(null);
+    setGuessResult(null);
+    setIsJoining(false);
   }, [activeRoomCode, roomState?.code]);
 
   const disconnect = leaveRoom;
@@ -216,6 +243,7 @@ export function useFirebaseRoom() {
     yourPlayerId,
     error,
     guessResult,
+    isJoining,
     createRoom,
     joinRoom,
     tryRejoin,

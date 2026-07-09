@@ -32,6 +32,7 @@ type QuestionPhaseProps = {
   onNextAsker: () => void;
   onSubmitGuess: (guesserId: string, targetPlayerId: string, guess: string, correct: boolean) => void;
   onRevealAnswer: () => void;
+  onLeave?: () => void;
   isOnline?: boolean;
   myPlayerId?: string;
   serverGuessResult?: "correct" | "wrong" | null;
@@ -50,6 +51,7 @@ export default function QuestionPhase({
   onNextAsker,
   onSubmitGuess,
   onRevealAnswer,
+  onLeave,
   isOnline = false,
   myPlayerId,
   serverGuessResult = null,
@@ -279,6 +281,12 @@ export default function QuestionPhase({
         {(!isOnline || isHost) && (
           <Button variant="text" color="secondary" onClick={onRevealAnswer}>
             Reveal all answers & end game
+          </Button>
+        )}
+
+        {isOnline && onLeave && (
+          <Button variant="text" color="secondary" onClick={onLeave}>
+            Leave room
           </Button>
         )}
       </Stack>

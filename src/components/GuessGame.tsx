@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import HomeIcon from "@mui/icons-material/Home";
@@ -37,20 +39,25 @@ export default function GuessGame() {
 
   // Auto-rejoin saved room from sessionStorage
   useEffect(() => {
-    if (socket.status !== "connected" || socket.roomState) return;
+    if (socket.status !== "connected" || socket.roomState || socket.isJoining) return;
     const savedRoom = getSessionRoomCode();
     const name = getPlayerName();
     if (savedRoom && name) {
       socket.tryRejoin(name);
-      setMode("online");
     }
-  }, [socket.status, socket.roomState, socket.tryRejoin]);
+  }, [socket.status, socket.roomState, socket.isJoining, socket.tryRejoin]);
 
   useEffect(() => {
     if (socket.roomState && mode !== "local") {
       setMode("online");
     }
   }, [socket.roomState, mode]);
+
+  useEffect(() => {
+    if (mode === "online" && !socket.roomState && !socket.isJoining) {
+      setMode("lobby");
+    }
+  }, [mode, socket.roomState, socket.isJoining]);
 
   const handleStartLocal = useCallback(
     (playerCount: number, names: string[], category: GuessCategory) => {
@@ -159,23 +166,21 @@ export default function GuessGame() {
   }, []);
 
   const handleGoHome = useCallback(() => {
-    if (mode === "online") {
-      socket.leaveRoom();
-      setMode("lobby");
-      return;
-    }
-    if (mode === "local" && game.phase !== "setup") {
-      setGame(createInitialState());
-      setMode("lobby");
-    }
-  }, [mode, game.phase, socket]);
+    void socket.leaveRoom();
+    setGame(createInitialState());
+    setMode("lobby");
+  }, [socket]);
+
+  const handleLeaveOnline = useCallback(() => {
+    void socket.leaveRoom();
+    setMode("lobby");
+  }, [socket]);
 
   const room = socket.roomState;
   const category = room ? getCategoryFromRoom(room) : null;
   const isHost = room ? room.hostId === socket.yourPlayerId : false;
 
-  const showHomeButton =
-    mode === "online" || (mode === "local" && game.phase !== "setup");
+  const showHomeButton = mode !== "lobby" || socket.isJoining;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -194,7 +199,13 @@ export default function GuessGame() {
           <Typography
             variant="h6"
             component="div"
-            sx={{ flexGrow: 1, color: "primary.main", fontWeight: 700 }}
+            onClick={handleGoHome}
+            sx={{
+              flexGrow: 1,
+              color: "primary.main",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
           >
             Guess Game
           </Typography>
@@ -217,7 +228,16 @@ export default function GuessGame() {
         </Toolbar>
       </AppBar>
 
-      {mode === "lobby" && (
+      {socket.isJoining && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+          <Stack spacing={2} sx={{ alignItems: "center" }}>
+            <CircularProgress />
+            <Typography color="text.secondary">Connecting to room...</Typography>
+          </Stack>
+        </Box>
+      )}
+
+      {mode === "lobby" && !socket.isJoining && (
         <LobbyScreen
           connectionStatus={socket.status}
           error={socket.error}
@@ -276,10 +296,7 @@ export default function GuessGame() {
           room={room}
           yourPlayerId={socket.yourPlayerId}
           onStart={socket.startGame}
-          onLeave={() => {
-            socket.leaveRoom();
-            setMode("lobby");
-          }}
+          onLeave={handleLeaveOnline}
         />
       )}
 
@@ -289,6 +306,7 @@ export default function GuessGame() {
           category={category}
           yourPlayerId={socket.yourPlayerId}
           onLockIn={socket.lockGuess}
+          onLeave={handleLeaveOnline}
         />
       )}
 
@@ -303,6 +321,7 @@ export default function GuessGame() {
           onNextAsker={socket.nextAsker}
           onSubmitGuess={() => {}}
           onRevealAnswer={socket.revealAnswer}
+          onLeave={handleLeaveOnline}
           isOnline
           myPlayerId={socket.yourPlayerId}
           serverGuessResult={socket.guessResult}
@@ -320,6 +339,7 @@ export default function GuessGame() {
             socket.playAgain();
             socket.clearGuessResult();
           }}
+          onLeave={handleLeaveOnline}
           isOnline
           isHost={isHost}
         />

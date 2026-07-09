@@ -15,6 +15,7 @@ type GameOverScreenProps = {
   players: Player[];
   category: GuessCategory;
   onPlayAgain: () => void;
+  onLeave?: () => void;
   isOnline?: boolean;
   isHost?: boolean;
 };
@@ -23,6 +24,7 @@ export default function GameOverScreen({
   players,
   category,
   onPlayAgain,
+  onLeave,
   isOnline = false,
   isHost = true,
 }: GameOverScreenProps) {
@@ -126,6 +128,12 @@ export default function GameOverScreen({
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
             Waiting for host to start a new round...
           </Typography>
+        )}
+
+        {isOnline && onLeave && (
+          <Button variant="text" color="secondary" onClick={onLeave}>
+            Leave room
+          </Button>
         )}
       </Stack>
     </Box>

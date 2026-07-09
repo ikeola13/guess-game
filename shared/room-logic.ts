@@ -136,14 +136,14 @@ export function joinRoomData(
   playerId: string,
   playerName: string,
 ): { room: Room; error?: string } {
-  if (room.phase !== "lobby") return { room, error: "Game already started" };
-
   const existing = room.players.find((p) => p.id === playerId);
   if (existing) {
     existing.connected = true;
     existing.name = playerName;
     return { room };
   }
+
+  if (room.phase !== "lobby") return { room, error: "Game already started" };
 
   if (room.players.filter((p) => p.connected).length >= room.maxPlayers) {
     return { room, error: "Room is full" };
