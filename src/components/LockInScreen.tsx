@@ -105,10 +105,10 @@ export default function LockInScreen({
             Player {playerIndex + 1} of {totalPlayers}
           </Typography>
           <Typography variant="h5" gutterBottom>
-            {player.name}, lock in your guess
+            {player.name}, set your answer
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            You have 30 seconds. Your guess stays hidden from other players.
+            You have 30 seconds. Your answer stays hidden from other players.
           </Typography>
         </Box>
 
@@ -164,7 +164,7 @@ export default function LockInScreen({
         </Card>
 
         <TextField
-          label={`Your guess (${category.label})`}
+          label={`Your answer (${category.label})`}
           value={guess}
           onChange={(e) => setGuess(e.target.value)}
           fullWidth

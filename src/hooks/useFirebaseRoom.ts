@@ -166,13 +166,13 @@ export function useFirebaseRoom() {
   );
 
   const submitGuess = useCallback(
-    async (guess: string) => {
+    async (targetPlayerId: string, guess: string) => {
       setGuessResult(null);
       const code = activeRoomCode ?? roomState?.code;
       const playerId = playerIdRef.current;
       if (!code || !playerId) return;
       try {
-        const correct = await roomApi.submitGuess(code, playerId, guess);
+        const correct = await roomApi.submitGuess(code, playerId, targetPlayerId, guess);
         setGuessResult(correct ? "correct" : "wrong");
       } catch (err) {
         handleError(err);

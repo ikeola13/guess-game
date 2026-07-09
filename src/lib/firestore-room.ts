@@ -135,12 +135,13 @@ export async function nextAsker(code: string): Promise<void> {
 
 export async function submitGuess(
   code: string,
-  playerId: string,
+  guesserId: string,
+  targetPlayerId: string,
   guess: string,
 ): Promise<boolean> {
   let correct = false;
   await updateRoom(code, (room) => {
-    const result = submitGuessData(room, playerId, guess);
+    const result = submitGuessData(room, guesserId, targetPlayerId, guess);
     if (result.error) return { room, error: result.error };
     correct = result.correct;
     return { room: result.room };

@@ -1,6 +1,6 @@
 import type { GamePhase, PublicPlayer, PublicRoomState } from "./protocol";
 import { LOCK_IN_MS, MAX_PLAYERS } from "./protocol";
-import { GUESS_CATEGORIES, isCorrectGuess, pickRandomItem } from "./categories";
+import { GUESS_CATEGORIES, isCorrectGuess, normalizeAnswer } from "./categories";
 
 export type RoomPlayer = {
   id: string;
@@ -18,7 +18,6 @@ export type Room = {
   maxPlayers: number;
   phase: GamePhase;
   categoryId: string | null;
-  secretAnswer: string;
   players: RoomPlayer[];
   lockInEndsAt: number | null;
   currentAskerId: string | null;
@@ -83,7 +82,6 @@ export function toPublicState(room: Room, viewerId: string): PublicRoomState {
     currentAskerId: room.currentAskerId,
     winnersNeeded: room.winnersNeeded,
     winnerCount: room.winnerCount,
-    secretAnswer: room.phase === "finished" ? room.secretAnswer : null,
   };
 }
 
@@ -103,7 +101,7 @@ function allPlayersLockedIn(room: Room): boolean {
 function finalizeLockIn(room: Room): void {
   for (const player of room.players) {
     if (!player.hasLockedIn) {
-      player.lockedGuess = "(no guess)";
+      player.lockedGuess = "(no answer)";
       player.hasLockedIn = true;
     }
   }
@@ -125,7 +123,6 @@ export function createRoomData(
     maxPlayers: capped,
     phase: "lobby",
     categoryId: null,
-    secretAnswer: "",
     players: [createPlayer(playerId, playerName)],
     lockInEndsAt: null,
     currentAskerId: null,
@@ -171,7 +168,6 @@ export function startGameData(
   if (!category) return { room, error: "Invalid category" };
 
   room.categoryId = categoryId;
-  room.secretAnswer = pickRandomItem(category);
   room.phase = "lock-in";
   room.lockInEndsAt = Date.now() + LOCK_IN_MS;
   room.winnersNeeded = connected.length === 3 ? 2 : 1;
@@ -199,7 +195,7 @@ export function lockGuessData(
   if (!player) return { room, error: "Player not found" };
   if (player.hasLockedIn) return { room, error: "Already locked in" };
 
-  player.lockedGuess = guess.trim() || "(no guess)";
+  player.lockedGuess = normalizeAnswer(guess) || "(no answer)";
   player.hasLockedIn = true;
 
   if (allPlayersLockedIn(room)) finalizeLockIn(room);
@@ -229,20 +225,28 @@ export function nextAskerData(room: Room): Room | null {
 
 export function submitGuessData(
   room: Room,
-  playerId: string,
+  guesserId: string,
+  targetPlayerId: string,
   guess: string,
 ): { room: Room; correct: boolean; error?: string } {
   if (room.phase !== "questions") return { room, correct: false, error: "Not in question phase" };
 
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player) return { room, correct: false, error: "Player not found" };
-  if (player.hasWon) return { room, correct: false, error: "Already won" };
+  const guesser = room.players.find((p) => p.id === guesserId);
+  if (!guesser) return { room, correct: false, error: "Player not found" };
+  if (guesser.hasWon) return { room, correct: false, error: "Already won" };
+  if (guesserId === targetPlayerId) {
+    return { room, correct: false, error: "You cannot guess your own answer" };
+  }
 
-  const correct = isCorrectGuess(guess, room.secretAnswer);
+  const target = room.players.find((p) => p.id === targetPlayerId);
+  if (!target) return { room, correct: false, error: "Target player not found" };
+  if (!target.lockedGuess) return { room, correct: false, error: "Target has no answer" };
+
+  const correct = isCorrectGuess(guess, target.lockedGuess);
   if (correct) {
     room.winnerCount += 1;
-    player.hasWon = true;
-    player.finishOrder = room.winnerCount;
+    guesser.hasWon = true;
+    guesser.finishOrder = room.winnerCount;
     if (room.winnerCount >= room.winnersNeeded) room.phase = "finished";
   }
 
@@ -260,7 +264,6 @@ export function playAgainData(room: Room, hostId: string): Room | null {
 
   room.phase = "lobby";
   room.categoryId = null;
-  room.secretAnswer = "";
   room.lockInEndsAt = null;
   room.currentAskerId = null;
   room.winnerCount = 0;

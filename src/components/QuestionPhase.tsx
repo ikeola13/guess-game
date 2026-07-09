@@ -11,6 +11,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -25,17 +26,16 @@ import type { Player } from "@/lib/game-types";
 type QuestionPhaseProps = {
   players: Player[];
   category: GuessCategory;
-  secretAnswer: string;
   currentAskerIndex: number;
   winnersNeeded: number;
   winnerCount: number;
   onNextAsker: () => void;
-  onSubmitGuess: (playerId: string, guess: string, correct: boolean) => void;
+  onSubmitGuess: (guesserId: string, targetPlayerId: string, guess: string, correct: boolean) => void;
   onRevealAnswer: () => void;
   isOnline?: boolean;
   myPlayerId?: string;
   serverGuessResult?: "correct" | "wrong" | null;
-  onSubmitGuessOnline?: (guess: string) => void;
+  onSubmitGuessOnline?: (targetPlayerId: string, guess: string) => void;
   onClearGuessResult?: () => void;
   isHost?: boolean;
   currentAskerId?: string | null;
@@ -44,7 +44,6 @@ type QuestionPhaseProps = {
 export default function QuestionPhase({
   players,
   category,
-  secretAnswer,
   currentAskerIndex,
   winnersNeeded,
   winnerCount,
@@ -60,7 +59,8 @@ export default function QuestionPhase({
   currentAskerId,
 }: QuestionPhaseProps) {
   const [guessDialogOpen, setGuessDialogOpen] = useState(false);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [targetPlayerId, setTargetPlayerId] = useState<string | null>(null);
+  const [guesserId, setGuesserId] = useState<string | null>(null);
   const [finalGuess, setFinalGuess] = useState("");
   const [guessResult, setGuessResult] = useState<"correct" | "wrong" | null>(null);
 
@@ -72,8 +72,9 @@ export default function QuestionPhase({
     : players[currentAskerIndex];
   const winners = players.filter((p) => p.hasWon).sort((a, b) => (a.finishOrder ?? 0) - (b.finishOrder ?? 0));
 
-  const openGuessDialog = (playerId: string) => {
-    setSelectedPlayerId(playerId);
+  const openGuessDialog = (targetId: string) => {
+    setTargetPlayerId(targetId);
+    setGuesserId(isOnline ? myPlayerId ?? null : currentAsker?.id ?? null);
     setFinalGuess("");
     if (!isOnline) setGuessResult(null);
     onClearGuessResult?.();
@@ -81,23 +82,38 @@ export default function QuestionPhase({
   };
 
   const handleSubmitGuess = () => {
-    if (!selectedPlayerId || !finalGuess.trim()) return;
+    if (!targetPlayerId || !finalGuess.trim()) return;
+
     if (isOnline && onSubmitGuessOnline) {
-      onSubmitGuessOnline(finalGuess.trim());
+      onSubmitGuessOnline(targetPlayerId, finalGuess.trim());
       return;
     }
-    const correct = isCorrectGuess(finalGuess, secretAnswer);
+
+    const guesser = guesserId ?? currentAsker?.id;
+    if (!guesser) return;
+
+    const targetAnswer = players.find((p) => p.id === targetPlayerId)?.lockedGuess;
+    const correct = targetAnswer ? isCorrectGuess(finalGuess, targetAnswer) : false;
     setGuessResult(correct ? "correct" : "wrong");
-    onSubmitGuess(selectedPlayerId, finalGuess.trim(), correct);
+    onSubmitGuess(guesser, targetPlayerId, finalGuess.trim(), correct);
   };
 
   const closeGuessDialog = () => {
     setGuessDialogOpen(false);
-    setSelectedPlayerId(null);
+    setTargetPlayerId(null);
+    setGuesserId(null);
     setFinalGuess("");
     if (!isOnline) setGuessResult(null);
     onClearGuessResult?.();
   };
+
+  const canGuessPlayer = (player: Player) => {
+    if (player.hasWon || winnerCount >= winnersNeeded) return false;
+    if (isOnline) return player.id !== myPlayerId;
+    return true;
+  };
+
+  const targetPlayer = players.find((p) => p.id === targetPlayerId);
 
   return (
     <Box sx={{ maxWidth: 560, mx: "auto", px: 2, py: 4 }}>
@@ -107,7 +123,8 @@ export default function QuestionPhase({
             Question Round
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Ask each other questions out loud. First to guess correctly wins
+            Take turns asking each other questions about everyone&apos;s answers.
+            First to guess someone&apos;s answer correctly wins
             {winnersNeeded > 1 ? " — top 2 win with 3 players" : ""}.
           </Typography>
         </Box>
@@ -153,7 +170,7 @@ export default function QuestionPhase({
                   {currentAsker?.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Ask a yes/no question to the group, then pass the turn.
+                  Ask a yes/no question about someone&apos;s answer, then pass the turn.
                 </Typography>
               </Box>
               <Button
@@ -202,10 +219,11 @@ export default function QuestionPhase({
                         <CheckCircleIcon fontSize="small" color="success" />
                       )}
                       <Typography
-                    sx={{ fontWeight: player.id === currentAsker?.id ? 700 : 400 }}
-                    color={player.hasWon ? "success.dark" : "text.primary"}
-                  >
+                        sx={{ fontWeight: player.id === currentAsker?.id ? 700 : 400 }}
+                        color={player.hasWon ? "success.dark" : "text.primary"}
+                      >
                         {player.name}
+                        {player.id === myPlayerId && " (you)"}
                         {player.hasWon && player.finishOrder && (
                           <Typography component="span" variant="caption" sx={{ ml: 1 }}>
                             #{player.finishOrder}
@@ -213,16 +231,14 @@ export default function QuestionPhase({
                         )}
                       </Typography>
                     </Stack>
-                    {!player.hasWon && winnerCount < winnersNeeded && (
-                      (!isOnline || player.id === myPlayerId) && (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => openGuessDialog(player.id)}
-                        >
-                          Final guess
-                        </Button>
-                      )
+                    {canGuessPlayer(player) && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => openGuessDialog(player.id)}
+                      >
+                        Guess their answer
+                      </Button>
                     )}
                   </Box>
                 ))}
@@ -262,20 +278,36 @@ export default function QuestionPhase({
 
         {(!isOnline || isHost) && (
           <Button variant="text" color="secondary" onClick={onRevealAnswer}>
-            Reveal answer & end game
+            Reveal all answers & end game
           </Button>
         )}
       </Stack>
 
       <Dialog open={guessDialogOpen} onClose={closeGuessDialog} fullWidth maxWidth="xs">
         <DialogTitle>
-          {players.find((p) => p.id === selectedPlayerId)?.name}&apos;s final guess
+          Guess {targetPlayer?.name}&apos;s answer
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Enter your guess for the secret {category.label.toLowerCase()} answer.
+              What do you think {targetPlayer?.name}&apos;s {category.label.toLowerCase()} answer is?
             </Typography>
+            {!isOnline && (
+              <TextField
+                select
+                label="Who is guessing?"
+                value={guesserId ?? ""}
+                onChange={(e) => setGuesserId(e.target.value)}
+                fullWidth
+                disabled={activeGuessResult !== null}
+              >
+                {activePlayers.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               label="Your guess"
               value={finalGuess}
@@ -304,7 +336,7 @@ export default function QuestionPhase({
             <Button
               variant="contained"
               onClick={handleSubmitGuess}
-              disabled={!finalGuess.trim()}
+              disabled={!finalGuess.trim() || (!isOnline && !guesserId)}
             >
               Submit guess
             </Button>

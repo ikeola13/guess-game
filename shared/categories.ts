@@ -136,10 +136,17 @@ export function pickRandomItem(category: GuessCategory): string {
   return category.items[index];
 }
 
+export function normalizeAnswer(answer: string): string {
+  return answer.trim();
+}
+
 export function normalizeGuess(guess: string): string {
-  return guess.trim().toLowerCase();
+  return normalizeAnswer(guess).toLowerCase();
 }
 
 export function isCorrectGuess(guess: string, answer: string): boolean {
-  return normalizeGuess(guess) === normalizeGuess(answer);
+  const normalizedGuess = normalizeGuess(guess);
+  const normalizedAnswer = normalizeGuess(answer);
+  if (!normalizedGuess || !normalizedAnswer) return false;
+  return normalizedGuess === normalizedAnswer;
 }

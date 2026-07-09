@@ -15,9 +15,9 @@ import GameOverScreen from "./GameOverScreen";
 import LobbyScreen from "./LobbyScreen";
 import WaitingRoom from "./WaitingRoom";
 import OnlineLockInScreen from "./OnlineLockInScreen";
-import { pickRandomItem } from "@/lib/categories";
-import type { GuessCategory } from "@/lib/categories";
 import { createInitialState, createPlayers } from "@/lib/game-types";
+import type { GuessCategory } from "@/lib/categories";
+import { normalizeAnswer } from "@/lib/categories";
 import type { GameState } from "@/lib/game-types";
 import { useFirebaseRoom } from "@/hooks/useFirebaseRoom";
 import {
@@ -54,14 +54,12 @@ export default function GuessGame() {
 
   const handleStartLocal = useCallback(
     (playerCount: number, names: string[], category: GuessCategory) => {
-      const secretAnswer = pickRandomItem(category);
       setGame({
         ...createInitialState(),
         phase: "lock-in",
         playerCount,
         players: createPlayers(playerCount, names),
         category,
-        secretAnswer,
         winnersNeeded: playerCount === 3 ? 2 : 1,
         lockInPlayerIndex: 0,
         lockInSecondsLeft: 30,
@@ -74,7 +72,7 @@ export default function GuessGame() {
   const handleLockIn = useCallback((guess: string) => {
     setGame((prev) => {
       const players = prev.players.map((p, i) =>
-        i === prev.lockInPlayerIndex ? { ...p, lockedGuess: guess } : p,
+        i === prev.lockInPlayerIndex ? { ...p, lockedGuess: normalizeAnswer(guess) } : p,
       );
       const nextIndex = prev.lockInPlayerIndex + 1;
 
@@ -95,7 +93,7 @@ export default function GuessGame() {
     setGame((prev) => {
       const players = prev.players.map((p, i) =>
         i === prev.lockInPlayerIndex && !p.lockedGuess
-          ? { ...p, lockedGuess: "(no guess)" }
+          ? { ...p, lockedGuess: "(no answer)" }
           : p,
       );
       const nextIndex = prev.lockInPlayerIndex + 1;
@@ -130,13 +128,13 @@ export default function GuessGame() {
   }, []);
 
   const handleSubmitGuess = useCallback(
-    (playerId: string, _guess: string, correct: boolean) => {
+    (guesserId: string, _targetPlayerId: string, _guess: string, correct: boolean) => {
       setGame((prev) => {
         if (!correct) return prev;
 
         const newWinnerCount = prev.winnerCount + 1;
         const players = prev.players.map((p) =>
-          p.id === playerId
+          p.id === guesserId
             ? { ...p, hasWon: true, finishOrder: newWinnerCount }
             : p,
         );
@@ -256,7 +254,6 @@ export default function GuessGame() {
         <QuestionPhase
           players={game.players}
           category={game.category}
-          secretAnswer={game.secretAnswer}
           currentAskerIndex={game.currentAskerIndex}
           winnersNeeded={game.winnersNeeded}
           winnerCount={game.winnerCount}
@@ -270,7 +267,6 @@ export default function GuessGame() {
         <GameOverScreen
           players={game.players}
           category={game.category}
-          secretAnswer={game.secretAnswer}
           onPlayAgain={handlePlayAgainLocal}
         />
       )}
@@ -300,7 +296,6 @@ export default function GuessGame() {
         <QuestionPhase
           players={roomPlayersToGamePlayers(room.players)}
           category={category}
-          secretAnswer=""
           currentAskerIndex={getCurrentAskerIndex(room)}
           currentAskerId={room.currentAskerId}
           winnersNeeded={room.winnersNeeded}
@@ -321,7 +316,6 @@ export default function GuessGame() {
         <GameOverScreen
           players={roomPlayersToGamePlayers(room.players)}
           category={category}
-          secretAnswer={room.secretAnswer ?? ""}
           onPlayAgain={() => {
             socket.playAgain();
             socket.clearGuessResult();

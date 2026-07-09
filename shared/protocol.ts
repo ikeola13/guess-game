@@ -21,7 +21,6 @@ export type PublicRoomState = {
   currentAskerId: string | null;
   winnersNeeded: number;
   winnerCount: number;
-  secretAnswer: string | null;
 };
 
 export const LOCK_IN_MS = 30_000;

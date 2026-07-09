@@ -15,7 +15,6 @@ export type GameState = {
   playerCount: number;
   players: Player[];
   category: GuessCategory | null;
-  secretAnswer: string;
   lockInPlayerIndex: number;
   lockInSecondsLeft: number;
   currentAskerIndex: number;
@@ -29,7 +28,6 @@ export function createInitialState(): GameState {
     playerCount: 2,
     players: [],
     category: null,
-    secretAnswer: "",
     lockInPlayerIndex: 0,
     lockInSecondsLeft: 30,
     currentAskerIndex: 0,

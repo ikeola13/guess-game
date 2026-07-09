@@ -59,7 +59,7 @@ export default function OnlineLockInScreen({
       <Box sx={{ maxWidth: 480, mx: "auto", px: 2, py: 4 }}>
         <Stack spacing={3} sx={{ alignItems: "center", textAlign: "center" }}>
           <CheckCircleIcon sx={{ fontSize: 56, color: "success.main" }} />
-          <Typography variant="h5">Guess locked in!</Typography>
+          <Typography variant="h5">Answer locked in!</Typography>
           <Typography variant="body2" color="text.secondary">
             Waiting for other players...
           </Typography>
@@ -74,10 +74,10 @@ export default function OnlineLockInScreen({
       <Stack spacing={3}>
         <Box sx={{ textAlign: "center" }}>
           <Typography variant="h5" gutterBottom>
-            Lock in your guess
+            Set your answer
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Everyone has 30 seconds. Your guess stays hidden from other players.
+            Everyone has 30 seconds. Your answer stays hidden from other players.
           </Typography>
         </Box>
 
@@ -122,7 +122,7 @@ export default function OnlineLockInScreen({
         </Card>
 
         <TextField
-          label={`Your guess (${category.label})`}
+          label={`Your answer (${category.label})`}
           value={guess}
           onChange={(e) => setGuess(e.target.value)}
           fullWidth

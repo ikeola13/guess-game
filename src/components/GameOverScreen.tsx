@@ -4,7 +4,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
@@ -15,7 +14,6 @@ import type { Player } from "@/lib/game-types";
 type GameOverScreenProps = {
   players: Player[];
   category: GuessCategory;
-  secretAnswer: string;
   onPlayAgain: () => void;
   isOnline?: boolean;
   isHost?: boolean;
@@ -24,7 +22,6 @@ type GameOverScreenProps = {
 export default function GameOverScreen({
   players,
   category,
-  secretAnswer,
   onPlayAgain,
   isOnline = false,
   isHost = true,
@@ -55,23 +52,6 @@ export default function GameOverScreen({
           )}
         </Box>
 
-        <Card sx={{ width: "100%", bgcolor: "primary.light" }}>
-          <CardContent>
-            <Stack spacing={1} sx={{ alignItems: "center", textAlign: "center" }}>
-              <Typography variant="overline" color="primary.dark">
-                The secret answer was
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Typography variant="h3">{category.emoji}</Typography>
-                <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 700 }}>
-                  {secretAnswer}
-                </Typography>
-              </Stack>
-              <Chip label={category.label} size="small" />
-            </Stack>
-          </CardContent>
-        </Card>
-
         {winners.length > 0 && (
           <Card sx={{ width: "100%" }}>
             <CardContent>
@@ -94,11 +74,6 @@ export default function GameOverScreen({
                     <Typography sx={{ fontWeight: 600 }} color="success.dark">
                       #{winner.finishOrder} {winner.name}
                     </Typography>
-                    {winner.lockedGuess && (
-                      <Typography variant="body2" color="text.secondary">
-                        Locked in: {winner.lockedGuess}
-                      </Typography>
-                    )}
                   </Box>
                 ))}
               </Stack>
@@ -109,7 +84,7 @@ export default function GameOverScreen({
         <Card sx={{ width: "100%" }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              All locked-in guesses
+              Everyone&apos;s answers ({category.emoji} {category.label})
             </Typography>
             <Stack spacing={1}>
               {players.map((player) => (
