@@ -40,6 +40,8 @@ export default function OnlineLockInScreen({
 
   const me = room.players.find((p) => p.id === yourPlayerId);
   const hasLockedIn = (me?.hasLockedIn ?? false) || isLocking;
+  const connectedCount = room.players.filter((p) => p.connected).length;
+  const lockedInCount = room.players.filter((p) => p.connected && p.hasLockedIn).length;
 
   useEffect(() => {
     if (!room.lockInEndsAt) return;
@@ -65,12 +67,25 @@ export default function OnlineLockInScreen({
           <CheckCircleIcon sx={{ fontSize: 56, color: "success.main" }} />
           <Typography variant="h5">Answer locked in!</Typography>
           <Typography variant="body2" color="text.secondary">
-            Waiting for other players...
+            {lockedInCount}/{connectedCount} players locked in. Waiting for everyone to finish...
           </Typography>
           <PlayerStatusList players={room.players} yourPlayerId={yourPlayerId} />
           <Button variant="text" color="secondary" onClick={onLeave}>
             Leave room
           </Button>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (!room.lockInEndsAt) {
+    return (
+      <Box sx={{ maxWidth: 480, mx: "auto", px: 2, py: 4 }}>
+        <Stack spacing={3} sx={{ alignItems: "center", textAlign: "center" }}>
+          <Typography variant="h5">Starting lock-in...</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Get ready — the timer will begin in a moment.
+          </Typography>
         </Stack>
       </Box>
     );

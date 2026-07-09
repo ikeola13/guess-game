@@ -1,5 +1,5 @@
 import type { GamePhase, GuessAttempt, PublicPlayer, PublicRoomState } from "./protocol";
-import { LOCK_IN_MS, MAX_PLAYERS, getWinnersNeeded } from "./protocol";
+import { LOCK_IN_MS, MAX_PLAYERS, MIN_PLAYERS, getWinnersNeeded } from "./protocol";
 import { GUESS_CATEGORIES, isCorrectGuess, normalizeAnswer } from "./categories";
 
 export type RoomPlayer = {
@@ -8,6 +8,7 @@ export type RoomPlayer = {
   connected: boolean;
   lockedGuess: string | null;
   hasLockedIn: boolean;
+  isReadyForLockIn: boolean;
   hasWon: boolean;
   finishOrder: number | null;
 };
@@ -43,7 +44,10 @@ export function firestoreToRoom(data: FirestoreRoom): Room {
   return {
     ...data,
     guessHistory: data.guessHistory ?? [],
-    players: Object.values(data.players),
+    players: Object.values(data.players).map((player) => ({
+      ...player,
+      isReadyForLockIn: player.isReadyForLockIn ?? false,
+    })),
   };
 }
 
@@ -54,6 +58,7 @@ function createPlayer(id: string, name: string): RoomPlayer {
     connected: true,
     lockedGuess: null,
     hasLockedIn: false,
+    isReadyForLockIn: false,
     hasWon: false,
     finishOrder: null,
   };
@@ -66,6 +71,7 @@ function toPublicPlayer(player: RoomPlayer, viewerId: string, phase: GamePhase):
     name: player.name,
     connected: player.connected,
     hasLockedIn: player.hasLockedIn,
+    isReadyForLockIn: player.isReadyForLockIn,
     lockedGuess: showGuess ? player.lockedGuess : player.hasLockedIn ? "🔒" : null,
     hasWon: player.hasWon,
     finishOrder: player.finishOrder,
@@ -97,8 +103,23 @@ export function generateRoomCode(): string {
   return code;
 }
 
+function connectedPlayers(room: Room): RoomPlayer[] {
+  return room.players.filter((p) => p.connected);
+}
+
 function allPlayersLockedIn(room: Room): boolean {
-  return room.players.every((p) => p.hasLockedIn);
+  const connected = connectedPlayers(room);
+  return connected.length > 0 && connected.every((p) => p.hasLockedIn);
+}
+
+function allConnectedPlayersReady(room: Room): boolean {
+  const connected = connectedPlayers(room);
+  return connected.length >= MIN_PLAYERS && connected.every((p) => p.isReadyForLockIn);
+}
+
+function beginLockInPhase(room: Room): void {
+  room.phase = "lock-in";
+  room.lockInEndsAt = Date.now() + LOCK_IN_MS;
 }
 
 function finalizeLockIn(room: Room): void {
@@ -189,8 +210,8 @@ export function startGameData(
   if (!category) return { room, error: "Invalid category" };
 
   room.categoryId = categoryId;
-  room.phase = "lock-in";
-  room.lockInEndsAt = Date.now() + LOCK_IN_MS;
+  room.phase = "lock-in-ready";
+  room.lockInEndsAt = null;
   room.winnersNeeded = getWinnersNeeded(connected.length);
   room.winnerCount = 0;
   room.guessHistory = [];
@@ -199,10 +220,45 @@ export function startGameData(
   for (const player of room.players) {
     player.lockedGuess = null;
     player.hasLockedIn = false;
+    player.isReadyForLockIn = false;
     player.hasWon = false;
     player.finishOrder = null;
   }
 
+  return { room };
+}
+
+export function markReadyForLockInData(
+  room: Room,
+  playerId: string,
+): { room: Room; error?: string } {
+  if (room.phase !== "lock-in-ready") {
+    return { room, error: "Not in lock-in ready phase" };
+  }
+
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return { room, error: "Player not found" };
+  if (!player.connected) return { room, error: "Player is disconnected" };
+  if (player.isReadyForLockIn) return { room };
+
+  player.isReadyForLockIn = true;
+  if (allConnectedPlayersReady(room)) beginLockInPhase(room);
+  return { room };
+}
+
+export function startLockInData(
+  room: Room,
+  hostId: string,
+): { room: Room; error?: string } {
+  if (room.hostId !== hostId) return { room, error: "Only the host can start lock-in" };
+  if (room.phase !== "lock-in-ready") return { room, error: "Not in lock-in ready phase" };
+
+  const connected = connectedPlayers(room);
+  if (connected.length < MIN_PLAYERS) {
+    return { room, error: "Need at least 2 connected players" };
+  }
+
+  beginLockInPhase(room);
   return { room };
 }
 
@@ -301,6 +357,7 @@ export function playAgainData(room: Room, hostId: string): Room | null {
   for (const player of room.players) {
     player.lockedGuess = null;
     player.hasLockedIn = false;
+    player.isReadyForLockIn = false;
     player.hasWon = false;
     player.finishOrder = null;
   }

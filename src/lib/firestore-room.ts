@@ -17,9 +17,11 @@ import {
   joinRoomData,
   leaveRoomData,
   lockGuessData,
+  markReadyForLockInData,
   playAgainData,
   roomToFirestore,
   startGameData,
+  startLockInData,
   submitGuessData,
   type FirestoreRoom,
   type Room,
@@ -98,6 +100,22 @@ export async function startGame(
 ): Promise<void> {
   await updateRoom(code, (room) => {
     const result = startGameData(room, playerId, categoryId);
+    if (result.error) return { room, error: result.error };
+    return { room: result.room };
+  });
+}
+
+export async function markReadyForLockIn(code: string, playerId: string): Promise<void> {
+  await updateRoom(code, (room) => {
+    const result = markReadyForLockInData(room, playerId);
+    if (result.error) return { room, error: result.error };
+    return { room: result.room };
+  });
+}
+
+export async function startLockIn(code: string, hostId: string): Promise<void> {
+  await updateRoom(code, (room) => {
+    const result = startLockInData(room, hostId);
     if (result.error) return { room, error: result.error };
     return { room: result.room };
   });

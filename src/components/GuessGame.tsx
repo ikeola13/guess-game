@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
@@ -17,6 +16,7 @@ import GameOverScreen from "./GameOverScreen";
 import LobbyScreen from "./LobbyScreen";
 import WaitingRoom from "./WaitingRoom";
 import OnlineLockInScreen from "./OnlineLockInScreen";
+import OnlineLockInReadyScreen from "./OnlineLockInReadyScreen";
 import { createInitialState, createPlayers } from "@/lib/game-types";
 import type { GuessCategory } from "@/lib/categories";
 import { normalizeAnswer } from "@/lib/categories";
@@ -187,43 +187,96 @@ export default function GuessGame() {
       <AppBar
         position="sticky"
         elevation={0}
-        color="inherit"
-        sx={{ borderBottom: 1, borderColor: "divider" }}
+        color="transparent"
+        sx={{
+          bgcolor: "background.paper",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
       >
-        <Toolbar>
+        <Toolbar
+          variant="dense"
+          sx={{
+            minHeight: 52,
+            px: 1.5,
+            gap: 1,
+          }}
+        >
           {showHomeButton && (
-            <IconButton edge="start" onClick={handleGoHome} aria-label="home">
-              <HomeIcon />
+            <IconButton
+              size="small"
+              edge="start"
+              onClick={handleGoHome}
+              aria-label="home"
+              sx={{ color: "text.secondary", ml: -0.5 }}
+            >
+              <HomeIcon sx={{ fontSize: 20 }} />
             </IconButton>
           )}
-          <Typography
-            variant="h6"
-            component="div"
+
+          <Box
+            sx={{ flex: 1, minWidth: 0 }}
             onClick={handleGoHome}
-            sx={{
-              flexGrow: 1,
-              color: "primary.main",
-              fontWeight: 700,
-              cursor: "pointer",
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") handleGoHome();
             }}
           >
-            Guess Game
-          </Typography>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                color: "primary.main",
+                cursor: "pointer",
+                lineHeight: 1.2,
+                letterSpacing: 0.1,
+              }}
+            >
+              Guess Game
+            </Typography>
+            {mode === "online" && category && room && room.phase !== "lobby" && (
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {category.emoji} {category.label}
+              </Typography>
+            )}
+            {mode === "local" && game.category && (
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {game.category.emoji} {game.category.label}
+              </Typography>
+            )}
+          </Box>
+
           {mode === "online" && room && (
-            <Chip label={room.code} size="small" sx={{ mr: 1 }} />
-          )}
-          {mode === "online" && socket.status === "connected" && (
-            <Chip label="Online" size="small" color="success" variant="outlined" />
-          )}
-          {mode === "local" && game.category && (
-            <Typography variant="body2" color="text.secondary">
-              {game.category.emoji} {game.category.label}
-            </Typography>
-          )}
-          {mode === "online" && category && room && room.phase !== "lobby" && (
-            <Typography variant="body2" color="text.secondary">
-              {category.emoji} {category.label}
-            </Typography>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexShrink: 0 }}>
+              {socket.status === "connected" && (
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    bgcolor: "success.main",
+                    boxShadow: "0 0 0 2px rgba(56, 106, 32, 0.15)",
+                  }}
+                />
+              )}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontFamily: "monospace",
+                  fontWeight: 600,
+                  letterSpacing: 1.2,
+                  color: "text.secondary",
+                  bgcolor: "action.hover",
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 1.5,
+                  fontSize: "0.7rem",
+                }}
+              >
+                {room.code}
+              </Typography>
+            </Stack>
           )}
         </Toolbar>
       </AppBar>
@@ -297,6 +350,19 @@ export default function GuessGame() {
           yourPlayerId={socket.yourPlayerId}
           onStart={socket.startGame}
           onLeave={handleLeaveOnline}
+        />
+      )}
+
+      {mode === "online" && room?.phase === "lock-in-ready" && category && (
+        <OnlineLockInReadyScreen
+          room={room}
+          category={category}
+          yourPlayerId={socket.yourPlayerId}
+          isHost={isHost}
+          onMarkReady={socket.markReadyForLockIn}
+          onStartLockIn={socket.startLockIn}
+          onLeave={handleLeaveOnline}
+          isMarkingReady={socket.pendingAction === "ready"}
         />
       )}
 

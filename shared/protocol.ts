@@ -1,4 +1,4 @@
-export type GamePhase = "lobby" | "lock-in" | "questions" | "finished";
+export type GamePhase = "lobby" | "lock-in-ready" | "lock-in" | "questions" | "finished";
 
 export type GuessAttempt = {
   id: string;
@@ -14,6 +14,7 @@ export type PublicPlayer = {
   name: string;
   connected: boolean;
   hasLockedIn: boolean;
+  isReadyForLockIn: boolean;
   lockedGuess: string | null;
   hasWon: boolean;
   finishOrder: number | null;

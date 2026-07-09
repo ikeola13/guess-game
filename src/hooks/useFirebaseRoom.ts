@@ -15,7 +15,7 @@ import {
 } from "@/lib/storage";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
-type PendingAction = "lock" | null;
+type PendingAction = "ready" | "lock" | null;
 
 export function useFirebaseRoom() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
@@ -179,6 +179,42 @@ export function useFirebaseRoom() {
     [withRoom],
   );
 
+  const markReadyForLockIn = useCallback(
+    async () => {
+      const code = activeRoomCode ?? roomState?.code;
+      const playerId = playerIdRef.current;
+      if (!code || !playerId) return;
+
+      setPendingAction("ready");
+      setRoomState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((player) =>
+            player.id === playerId
+              ? { ...player, isReadyForLockIn: true }
+              : player,
+          ),
+        };
+      });
+
+      try {
+        setError(null);
+        await roomApi.markReadyForLockIn(code, playerId);
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [activeRoomCode, roomState?.code, handleError],
+  );
+
+  const startLockIn = useCallback(
+    () => withRoom((code, playerId) => roomApi.startLockIn(code, playerId)),
+    [withRoom],
+  );
+
   const lockGuess = useCallback(
     async (guess: string) => {
       const code = activeRoomCode ?? roomState?.code;
@@ -272,6 +308,8 @@ export function useFirebaseRoom() {
     joinRoom,
     tryRejoin,
     startGame,
+    markReadyForLockIn,
+    startLockIn,
     lockGuess,
     submitGuess,
     revealAnswer,
