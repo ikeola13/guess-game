@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import CircularProgress from "@mui/material/CircularProgress";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
@@ -21,8 +22,10 @@ import WifiIcon from "@mui/icons-material/Wifi";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import QuizIcon from "@mui/icons-material/Quiz";
 import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
+import LoginIcon from "@mui/icons-material/Login";
 import Link from "next/link";
 import { getPlayerName, savePlayerName } from "@/lib/storage";
+import { lookupRoom } from "@/lib/lookup-room";
 import { MAX_PLAYERS, MIN_PLAYERS } from "../../shared/protocol";
 
 type LobbyScreenProps = {
@@ -46,9 +49,10 @@ export default function LobbyScreen({
 }: LobbyScreenProps) {
   const [tab, setTab] = useState(0);
   const [name, setName] = useState("");
-  const [roomCode, setRoomCode] = useState("");
-  const [quizCode, setQuizCode] = useState("");
+  const [joinCode, setJoinCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(2);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = getPlayerName();
@@ -62,14 +66,40 @@ export default function LobbyScreen({
     onCreateRoom(name.trim(), maxPlayers);
   };
 
-  const handleJoin = () => {
-    savePlayerName(name);
-    onJoinRoom(name.trim(), roomCode.trim().toUpperCase());
-  };
+  const handleJoinWithCode = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code || !canProceed) return;
 
-  const handleJoinQuiz = () => {
-    savePlayerName(name);
-    onJoinQuiz(name.trim(), quizCode.trim().toUpperCase());
+    setJoinLoading(true);
+    setJoinError(null);
+    try {
+      const result = await lookupRoom(code);
+      const gameLabel = result.type === "quiz" ? "Quiz" : "Game";
+
+      switch (result.status) {
+        case "not_found":
+          setJoinError(`No room found with code "${code}". Check the code and try again.`);
+          break;
+        case "finished":
+          setJoinError(`This ${gameLabel.toLowerCase()} has already ended. Ask the host to create a new session.`);
+          break;
+        case "in_progress":
+          setJoinError(`${gameLabel} is already in progress. You can't join mid-game.`);
+          break;
+        case "joinable":
+          savePlayerName(name);
+          if (result.type === "guess") {
+            onJoinRoom(name.trim(), code);
+          } else {
+            onJoinQuiz(name.trim(), code);
+          }
+          break;
+      }
+    } catch {
+      setJoinError("Failed to look up room. Check your connection.");
+    } finally {
+      setJoinLoading(false);
+    }
   };
 
   return (
@@ -110,6 +140,53 @@ export default function LobbyScreen({
                 helperText="Saved in localStorage for next time"
               />
 
+              {/* Unified join section */}
+              <Card variant="outlined" sx={{ bgcolor: "grey.50" }}>
+                <CardContent>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Join with a code
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Works for both Guess rooms and Quiz sessions.
+                      </Typography>
+                    </Box>
+                    <TextField
+                      label="Room code"
+                      value={joinCode}
+                      onChange={(e) => {
+                        setJoinCode(e.target.value.toUpperCase());
+                        setJoinError(null);
+                      }}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. ABCDE"
+                      disabled={joinLoading}
+                      slotProps={{
+                        htmlInput: {
+                          maxLength: 5,
+                          style: { letterSpacing: 4, textTransform: "uppercase" },
+                        },
+                      }}
+                    />
+                    {joinError && <Alert severity="error" variant="outlined">{joinError}</Alert>}
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      startIcon={joinLoading ? <CircularProgress size={18} color="inherit" /> : <LoginIcon />}
+                      disabled={!canProceed || joinCode.trim().length < 4 || joinLoading}
+                      onClick={handleJoinWithCode}
+                    >
+                      {joinLoading ? "Looking up..." : "Join Room"}
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              <Divider>or create</Divider>
+
+              {/* Create tabs */}
               <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
                 <Tab icon={<WifiIcon />} iconPosition="start" label="Guess" />
                 <Tab icon={<PhoneAndroidIcon />} iconPosition="start" label="Local" />
@@ -118,68 +195,35 @@ export default function LobbyScreen({
 
               {tab === 0 && (
                 <Stack spacing={2}>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Create a room
-                    </Typography>
-                    <FormControl fullWidth>
-                      <InputLabel id="max-players-label">Max players</InputLabel>
-                      <Select
-                        labelId="max-players-label"
-                        value={maxPlayers}
-                        label="Max players"
-                        onChange={(e) => setMaxPlayers(Number(e.target.value))}
-                      >
-                        {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => {
-                          const count = i + MIN_PLAYERS;
-                          return (
-                            <MenuItem key={count} value={count}>
-                              {count} players
-                            </MenuItem>
-                          );
-                        })}
-                      </Select>
-                    </FormControl>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      sx={{ mt: 2 }}
-                      disabled={!canProceed}
-                      onClick={handleCreate}
+                  <Typography variant="body2" color="text.secondary">
+                    Host a number-guessing game for friends to join.
+                  </Typography>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="max-players-label">Max players</InputLabel>
+                    <Select
+                      labelId="max-players-label"
+                      value={maxPlayers}
+                      label="Max players"
+                      onChange={(e) => setMaxPlayers(Number(e.target.value))}
                     >
-                      Create Room
-                    </Button>
-                  </Box>
-
-                  <Divider>or</Divider>
-
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Join a room
-                    </Typography>
-                    <TextField
-                      label="Room code"
-                      value={roomCode}
-                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                      fullWidth
-                      placeholder="ABCDE"
-                      slotProps={{
-                        htmlInput: {
-                          maxLength: 5,
-                          style: { letterSpacing: 4, textTransform: "uppercase" },
-                        },
-                      }}
-                    />
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      sx={{ mt: 2 }}
-                      disabled={!canProceed || roomCode.trim().length < 4}
-                      onClick={handleJoin}
-                    >
-                      Join Room
-                    </Button>
-                  </Box>
+                      {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => {
+                        const count = i + MIN_PLAYERS;
+                        return (
+                          <MenuItem key={count} value={count}>
+                            {count} players
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    disabled={!canProceed}
+                    onClick={handleCreate}
+                  >
+                    Create Guess Room
+                  </Button>
                 </Stack>
               )}
 
@@ -197,17 +241,8 @@ export default function LobbyScreen({
               {tab === 2 && (
                 <Stack spacing={2}>
                   <Typography variant="body2" color="text.secondary">
-                    Pick a topic and host a quiz for up to 20 players with a synced 10-second timer.
+                    Pick a topic and run a timed quiz for up to 20 players.
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    component={Link}
-                    href="/quiz-bank"
-                    startIcon={<LibraryBooksIcon />}
-                  >
-                    Manage question bank
-                  </Button>
                   <Button
                     variant="contained"
                     fullWidth
@@ -217,29 +252,16 @@ export default function LobbyScreen({
                       onHostQuiz();
                     }}
                   >
-                    Host a quiz
+                    Host a Quiz
                   </Button>
-                  <Divider>or join</Divider>
-                  <TextField
-                    label="Quiz session code"
-                    value={quizCode}
-                    onChange={(e) => setQuizCode(e.target.value.toUpperCase())}
-                    fullWidth
-                    placeholder="ABCDE"
-                    slotProps={{
-                      htmlInput: {
-                        maxLength: 5,
-                        style: { letterSpacing: 4, textTransform: "uppercase" },
-                      },
-                    }}
-                  />
                   <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!canProceed || quizCode.trim().length < 4}
-                    onClick={handleJoinQuiz}
+                    variant="text"
+                    size="small"
+                    component={Link}
+                    href="/quiz-bank"
+                    startIcon={<LibraryBooksIcon />}
                   >
-                    Join quiz
+                    Manage question bank
                   </Button>
                 </Stack>
               )}
