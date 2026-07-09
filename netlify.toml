@@ -5,8 +5,13 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
+  # Firebase NEXT_PUBLIC_* values are intentionally embedded in client JS
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,NEXT_PUBLIC_FIREBASE_APP_ID"
+  SECRETS_SCAN_OMIT_PATHS = ".firebaserc,DEPLOY.md"
 
 # Frontend is hosted on Netlify only.
-# Firebase is used for Firestore + Cloud Functions (backend).
+# Firebase is used for Firestore (database).
 # Set NEXT_PUBLIC_FIREBASE_* env vars in Netlify dashboard.
+#
+# In Netlify UI: clear "Publish directory" if set — the Next.js plugin handles output.

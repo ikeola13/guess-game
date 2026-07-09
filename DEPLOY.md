@@ -21,7 +21,7 @@ The secret answer is stored in Firestore but **never shown in the UI** until the
 
 ## 1. Firebase setup
 
-1. [Firebase Console](https://console.firebase.google.com/) → project `guess-game-a0138`
+1. [Firebase Console](https://console.firebase.google.com/) → your project
 2. Enable **Firestore** (production mode)
 3. Copy web app config into `.env.local`
 
