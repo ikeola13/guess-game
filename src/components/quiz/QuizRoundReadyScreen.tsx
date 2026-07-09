@@ -53,8 +53,10 @@ export default function QuizRoundReadyScreen({
 
         <Card>
           <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6">{question.prompt}</Typography>
+            <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
+              <Typography variant="h6" color="text.secondary">
+                🤫 Question hidden until everyone is ready
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 {question.options.length} answer choices will appear when the timer starts.
               </Typography>
